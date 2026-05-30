@@ -3,7 +3,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const urlMod = require('url');
-const os = require('os');
+const zlib = require('zlib');
 
 const PORT = process.env.PORT || 3003;
 
@@ -25,7 +25,7 @@ function fetchRaw(targetUrl, postData, callback) {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-      'Accept-Encoding': 'gzip, deflate',
+      'Accept-Encoding': 'identity',
       'DNT': '1'
     },
     timeout: 30000,
@@ -37,8 +37,19 @@ function fetchRaw(targetUrl, postData, callback) {
   }
   const req = mod.request(opts, function (res) {
     const chunks = [];
-    res.on('data', c => chunks.push(c));
-    res.on('end', () => callback(null, { status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+    const encoding = res.headers['content-encoding'];
+    // Remove content-encoding from headers so the frontend gets plain data
+    delete res.headers['content-encoding'];
+    delete res.headers['content-length'];
+    if (encoding === 'gzip' || encoding === 'deflate') {
+      const unzip = encoding === 'gzip' ? zlib.createGunzip() : zlib.createInflate();
+      res.pipe(unzip);
+      unzip.on('data', c => chunks.push(c));
+      unzip.on('end', () => callback(null, { status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+    } else {
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => callback(null, { status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+    }
   });
   req.on('error', e => callback(e));
   req.on('timeout', () => { req.destroy(); callback(new Error('timeout')); });
@@ -46,7 +57,7 @@ function fetchRaw(targetUrl, postData, callback) {
   req.end();
 }
 
-const PASS_THRU = ['content-type', 'content-encoding', 'content-length', 'transfer-encoding'];
+const PASS_THRU = ['content-type', 'content-length', 'transfer-encoding'];
 
 const server = http.createServer(function (req, res) {
   const u = urlMod.parse(req.url, true);
