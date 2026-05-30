@@ -1,0 +1,42 @@
+小e阅读器网页版 — 部署到公网教程
+====================================
+
+方法一：Render.com（免费，推荐）
+--------------------------------
+1. 打开 https://render.com 注册账号（用 GitHub 或 Google）
+2. 点 Dashboard → New + → Web Service
+3. 连接你的 GitHub，选存放本文件夹的仓库
+   （或者选 "Upload from folder"，把本文件夹压缩上传）
+4. 填写：
+   - Name: xiao-e-reader
+   - Environment: Node
+   - Build Command: 留空
+   - Start Command: node server.js
+   - Plan: Free
+5. 点 "Create Web Service"
+6. 等几分钟，部署完成会给你 https://xiao-e-reader.onrender.com
+
+注意：Free 计划如果 15 分钟没人访问会休眠，再次访问会冷启动等几秒
+
+
+方法二：Vercel（免费，但需要改造）
+--------------------------------
+Vercel 只支持 serverless 函数，需要把 server.js 改造成 Vercel 兼容格式。
+想用的话告诉我，我帮你改。
+
+
+方法三：自己的云服务器
+--------------------------------
+1. 把本文件夹上传到服务器
+2. 装 Node.js（16+）
+3. 运行：node server.js
+4. 用 Nginx 反向代理并绑定域名
+5. 推荐用 pm2 保持进程：npm install -g pm2 && pm2 start server.js
+
+
+方法四：Cloudflare Tunnel（免费，不需要服务器）
+--------------------------------
+1. 下载 cloudflared：https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+2. 运行：cloudflared tunnel http://localhost:3003
+3. 会生成一个 https://xxx.trycloudflare.com 网址，可直接访问
+4. 也可绑定自己的域名（需要 Cloudflare 托管域名）

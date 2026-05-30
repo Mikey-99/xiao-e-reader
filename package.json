@@ -1,0 +1,12 @@
+{
+  "name": "xiao-e-reader-web",
+  "version": "1.0.0",
+  "description": "小e阅读器网页版",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
