@@ -13,7 +13,9 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const HTML = fs.readFileSync(path.join(__dirname, 'reader.html'), 'utf8');
 
-function fetchRaw(targetUrl, postData, callback) {
+function fetchRaw(targetUrl, postData, callback, redirects) {
+  if (!redirects) redirects = 0;
+  if (redirects > 10) { callback(new Error('too many redirects')); return; }
   const u = urlMod.parse(targetUrl);
   const mod = u.protocol === 'https:' ? https : http;
   const opts = {
@@ -42,6 +44,17 @@ function fetchRaw(targetUrl, postData, callback) {
     callback(err, result);
   }
   const req = mod.request(opts, function (res) {
+    // Follow redirects
+    if ([301, 302, 303, 307, 308].indexOf(res.statusCode) >= 0) {
+      var loc = res.headers['location'];
+      if (loc) {
+        if (!/^https?:\/\//i.test(loc)) {
+          try { loc = new URL(loc, targetUrl).href; } catch(e) {}
+        }
+        fetchRaw(loc, postData, callback, redirects + 1);
+        return;
+      }
+    }
     const chunks = [];
     const encoding = res.headers['content-encoding'];
     delete res.headers['content-encoding'];
