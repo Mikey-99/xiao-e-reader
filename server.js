@@ -35,24 +35,31 @@ function fetchRaw(targetUrl, postData, callback) {
     opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
     opts.headers['Content-Length'] = Buffer.byteLength(postData);
   }
+  var cbDone = false;
+  function cbOnce(err, result) {
+    if (cbDone) return;
+    cbDone = true;
+    callback(err, result);
+  }
   const req = mod.request(opts, function (res) {
     const chunks = [];
     const encoding = res.headers['content-encoding'];
-    // Remove content-encoding from headers so the frontend gets plain data
     delete res.headers['content-encoding'];
     delete res.headers['content-length'];
     if (encoding === 'gzip' || encoding === 'deflate') {
       const unzip = encoding === 'gzip' ? zlib.createGunzip() : zlib.createInflate();
       res.pipe(unzip);
       unzip.on('data', c => chunks.push(c));
-      unzip.on('end', () => callback(null, { status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+      unzip.on('end', () => cbOnce(null, { status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+      unzip.on('error', e => cbOnce(e));
     } else {
       res.on('data', c => chunks.push(c));
-      res.on('end', () => callback(null, { status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+      res.on('end', () => cbOnce(null, { status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
     }
+    res.on('error', e => cbOnce(e));
   });
-  req.on('error', e => callback(e));
-  req.on('timeout', () => { req.destroy(); callback(new Error('timeout')); });
+  req.on('error', e => cbOnce(e));
+  req.on('timeout', () => { req.destroy(); cbOnce(new Error('timeout')); });
   if (postData) req.write(postData);
   req.end();
 }
@@ -122,4 +129,11 @@ const server = http.createServer(function (req, res) {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('小e阅读器网页版已启动: http://localhost:' + PORT);
+});
+
+process.on('uncaughtException', function(e) {
+  console.error('uncaught:', e.message);
+});
+process.on('unhandledRejection', function(e) {
+  console.error('unhandled:', e && e.message);
 });
